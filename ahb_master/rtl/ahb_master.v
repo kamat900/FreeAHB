@@ -2,8 +2,6 @@
 // This is the top module. Also contains pipeline control logic. You can set
 // data bus to either 32-bit or 64-bit by setting BUS_WDT to either 32 or 64.
 //
-// STILL WORKING ON THIS. NOT READY YET.
-//
 // ----------------------------------------------------------------------------
 // MIT License.
 // (C)2016 Revanth Kamaraj.
@@ -50,6 +48,6 @@ module ahb_master #(BUS_WDT = 32) // Set either 32 or 64.
         output  wire                    o_xfer_dav
 );
 
-// Still working on this. Not ready yet.
+
 
 endmodule
