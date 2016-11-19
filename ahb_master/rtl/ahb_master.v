@@ -100,6 +100,7 @@ wire nready =     ( i_xfer_write && !i_xfer_dav   ) ||
 
 assign  o_xfer_adv =    i_hready         && 
                         i_hgrant         && 
+                        !backtrack_ff    &&
                         i_hresp != SPLIT && 
                         i_hresp != RETRY;
 

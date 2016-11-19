@@ -45,28 +45,13 @@ ahb_master #(.BUS_WDT(BUS_WDT)) u_ahb_master (.*);
 
 always #10 i_hclk++;
 
-always @ (posedge i_hclk)
-begin
-        i_hready <= $random;
-end
-
-always @ (posedge i_hclk)
-begin
-        if ( o_xfer_adv )
-        begin: bk1
-                bit x;
-                x = $random;
-
-                i_xfer_dav   <= x;
-                i_xfer_wdata <= x ? $random : 32'dx;
-        end
-end
-
 initial
 begin
         $dumpfile("ahb_master.vcd");
         $dumpvars;
         i_hgrant <= 1'd1;
+
+        @(posedge i_hclk);
 
         @(posedge i_hclk);
         i_hreset_n <= 1'd1;
@@ -75,11 +60,44 @@ begin
         i_xfer_en    <= 1'd1;
         i_xfer_trig  <= 1'd1;
         i_xfer_write <= 1'd1;
+        i_xfer_wdata <= $random;
+        i_xfer_addr  <= 32'h2000_0000;
+        i_xfer_dav   <= 1'd1;
+        i_hready     <= 1'd1;
 
-        while(o_xfer_adv != 1'd1) @(posedge i_hclk);
-        i_xfer_trig <= 1'd0;
+        @(posedge i_hclk);
+        i_xfer_wdata <= $random;
+        i_xfer_trig  <= 1'd0;
 
-        delay(10000);
+        @(posedge i_hclk);
+        i_hready     <= 1'd1;
+        i_xfer_wdata <= $random;
+
+        @(posedge i_hclk);
+        i_hresp      <= 2'd3;
+        i_hready     <= 1'd0;
+        i_xfer_wdata <= $random;
+
+        @(posedge i_hclk);
+        i_hresp      <= 2'd3;
+        i_hready     <= 1'd0;
+
+        @(posedge i_hclk);
+        i_hresp      <= 2'd3;
+        i_hready     <= 1'd1;
+
+        @(posedge i_hclk);
+        i_hresp      <= 2'd0;
+        i_hready     <= 1'd1;
+
+        @(posedge i_hclk);
+
+        @(posedge i_hclk);
+        i_xfer_wdata  <= $random;
+        i_xfer_dav   <= 1'd1;
+
+        delay(3);
+
         $finish;
 end
 

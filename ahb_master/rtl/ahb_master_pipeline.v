@@ -71,12 +71,15 @@ localparam [1:0] BUSY = 2'd1;
 localparam [1:0] OKAY = 2'd0;
 localparam [1:0] ERROR = 2'd1;
 
+// Nosleep flop.
+reg dontsleep;
+
 // Pipeline anti-stall signal, hwdata anti-stall signal, di_data_en anti-stall.
 wire adv = i_hready && i_hgrant;
 
-wire do_hwdata_en = adv                 && 
+wire do_hwdata_en = adv                  && 
                     o_agu_hwrite         && 
-                    o_agu_htrans != IDLE && 
+                   (o_agu_htrans != IDLE || dontsleep) &&
                     o_agu_htrans != BUSY;
 
 wire di_data_en  =  adv                 && 
@@ -89,7 +92,6 @@ always @ (posedge i_hclk or negedge i_hreset_n)
 begin: agu
         if ( !i_hreset_n )
         begin
-                $display("Reset");
                 o_agu_hwdata    <=      {WDT{1'd0}};
                 o_agu_haddr     <=      {WDT{1'd0}};
                 o_agu_hsize     <=      2'd0;
@@ -100,7 +102,6 @@ begin: agu
         end               
         else if ( adv )
         begin
-                $display("Advancing...");
                 o_agu_hwdata    <=   i_hwdata;    
                 o_agu_haddr     <=   i_haddr;     
                 o_agu_hsize     <=   i_hsize;     
@@ -117,14 +118,17 @@ begin
         if ( !i_hreset_n )
         begin
                 o_agu_htrans    <=      IDLE;
+                dontsleep       <=      1'd0;
         end
-        else if ( i_hgrant && i_hresp != OKAY && i_hresp != ERROR )
+        else if ( i_hgrant && !i_hready && i_hresp != OKAY && i_hresp != ERROR )
         begin
                 o_agu_htrans    <=      IDLE;
+                dontsleep       <=      1'd1;
         end
         else if ( adv )
         begin
                 o_agu_htrans    <=      i_htrans;
+                dontsleep       <=      1'd0;
         end
 end
 
