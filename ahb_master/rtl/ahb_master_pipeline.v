@@ -31,10 +31,10 @@ module ahb_pipeline #(parameter WDT = 32'd32) // Bus width = 32-bit by default.
         // =================================
 
         input   wire            i_hwrite,
+        input   wire [1:0]      i_hresp,
         input   wire [WDT-1:0]  i_hwdata,
         input   wire [31:0]     i_haddr,
         input   wire [1:0]      i_htrans,
-        input   wire [1:0]      i_hburst,
         input   wire [1:0]      i_hsize,
         input   wire [3:0]      i_hprot,
         input   wire            i_hlock,
@@ -47,51 +47,51 @@ module ahb_pipeline #(parameter WDT = 32'd32) // Bus width = 32-bit by default.
         output  reg  [WDT-1:0]  o_agu_hwdata,
         output  reg  [31:0]     o_agu_haddr,
         output  reg  [1:0]      o_agu_htrans,
-        output  reg  [1:0]      o_agu_hburst,
         output  reg  [1:0]      o_agu_hsize,
         output  reg  [3:0]      o_agu_hprot,
         output  reg             o_agu_hwrite,
         output  reg             o_agu_hlock,
         output  reg             o_agu_hbusreq,
 
-        output  reg  [WDT-1:0]  o_di_data,
-        output  reg             o_di_dav,
-
         output  reg  [WDT-1:0]  o_do_hwdata,
+        output  reg  [31:0]     o_do_haddr,
         output  reg  [1:0]      o_do_htrans,
-        output  reg  [1:0]      o_do_hburst,
         output  reg  [1:0]      o_do_hsize,
         output  reg  [3:0]      o_do_hprot,
+        output  reg             o_do_hwrite,
         output  reg             o_do_hlock,
-        output  reg  [31:0]     o_do_haddr,
-        output  reg             o_do_hwrite
+
+        output  reg  [WDT-1:0]  o_di_data,
+        output  reg             o_di_dav
 );
 
 localparam [1:0] IDLE = 2'd0;
 localparam [1:0] BUSY = 2'd1;
 
+localparam [1:0] OKAY = 2'd0;
+localparam [1:0] ERROR = 2'd1;
+
 // Pipeline anti-stall signal, hwdata anti-stall signal, di_data_en anti-stall.
 wire adv = i_hready && i_hgrant;
 
-wire do_hwdata_en=adv                 && 
-                  o_do_hwrite         && 
-                  o_do_htrans != IDLE && 
-                  o_do_htrans != BUSY;
+wire do_hwdata_en = adv                 && 
+                    o_agu_hwrite         && 
+                    o_agu_htrans != IDLE && 
+                    o_agu_htrans != BUSY;
 
-wire di_data_en = adv                   && 
-                  !o_do_hwrite          && 
-                  o_do_htrans != IDLE   && 
-                  o_do_htrans != BUSY;
+wire di_data_en  =  adv                 && 
+                    !o_do_hwrite        && 
+                    o_do_htrans != IDLE && 
+                    o_do_htrans != BUSY;
 
 // Address Generation Unit Stage.
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin: agu
         if ( !i_hreset_n )
         begin
+                $display("Reset");
                 o_agu_hwdata    <=      {WDT{1'd0}};
                 o_agu_haddr     <=      {WDT{1'd0}};
-                o_agu_htrans    <=      2'd0;
-                o_agu_hburst    <=      2'd0;
                 o_agu_hsize     <=      2'd0;
                 o_agu_hprot     <=      4'd0;
                 o_agu_hwrite    <=      1'd1;
@@ -100,16 +100,32 @@ begin: agu
         end               
         else if ( adv )
         begin
+                $display("Advancing...");
                 o_agu_hwdata    <=   i_hwdata;    
                 o_agu_haddr     <=   i_haddr;     
-                o_agu_htrans    <=   i_htrans;    
-                o_agu_hburst    <=   i_hburst;    
                 o_agu_hsize     <=   i_hsize;     
                 o_agu_hprot     <=   i_hprot;     
                 o_agu_hwrite    <=   i_hwrite;    
                 o_agu_hlock     <=   i_hlock;     
                 o_agu_hbusreq   <=   i_hbusreq;   
         end 
+end
+
+// Address Generation Unit Stage.
+always @ (posedge i_hclk or negedge i_hreset_n)
+begin
+        if ( !i_hreset_n )
+        begin
+                o_agu_htrans    <=      IDLE;
+        end
+        else if ( i_hgrant && i_hresp != OKAY && i_hresp != ERROR )
+        begin
+                o_agu_htrans    <=      IDLE;
+        end
+        else if ( adv )
+        begin
+                o_agu_htrans    <=      i_htrans;
+        end
 end
 
 // Data Out Stage.
@@ -119,7 +135,6 @@ begin: _do
         begin
                 o_do_haddr     <=      {WDT{1'd0}};
                 o_do_htrans    <=      2'd0;
-                o_do_hburst    <=      2'd0;
                 o_do_hsize     <=      2'd0;
                 o_do_hprot     <=      4'd0;
                 o_do_hwrite    <=      1'd1;
@@ -129,7 +144,6 @@ begin: _do
         begin
                 o_do_haddr     <=   o_agu_haddr;     
                 o_do_htrans    <=   o_agu_htrans;    
-                o_do_hburst    <=   o_agu_hburst;    
                 o_do_hsize     <=   o_agu_hsize;     
                 o_do_hprot     <=   o_agu_hprot;     
                 o_do_hwrite    <=   o_agu_hwrite;    
