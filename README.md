@@ -1,6 +1,7 @@
 FreeAHB
-Author: Revanth Kamaraj  (revanth91kamaraj@gmail.com)
 ===============================================================================
+Author: Revanth Kamaraj  (revanth91kamaraj@gmail.com)
+
 This repository currently provides a fully compliant AHB Master. 
 I will be adding arbiter and slave in the future.
 
