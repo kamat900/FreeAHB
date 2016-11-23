@@ -48,7 +48,8 @@ module ahb_master #(parameter BUS_WDT = 32) // Set either 32 or 64.
 
         output  wire                    o_xfer_adv,   // Advance UI Combo.        
         output  wire [BUS_WDT-1:0]      o_xfer_rdata,
-        output  wire                    o_xfer_rdav
+        output  wire                    o_xfer_rdav,
+        output  wire                    o_xfer_ok_to_shutdown
 );
 
 localparam [1:0] INCR   = 2'd1;
@@ -104,6 +105,7 @@ assign  o_xfer_adv =    i_hready         &&
                         i_hresp != SPLIT && 
                         i_hresp != RETRY;
 
+assign  o_xfer_ok_to_shutdown = (o_htrans == IDLE && do_htrans == IDLE);
 
 // ==========================
 // Pipeline instance.
@@ -163,7 +165,7 @@ ahb_pipeline #(
 // =============================
 always @*
 begin
-        if ( !i_xfer_en )
+        if ( !i_xfer_en && o_xfer_ok_to_shutdown )
         begin
                 haddr  = o_haddr;
                 hwrite = o_hwrite;

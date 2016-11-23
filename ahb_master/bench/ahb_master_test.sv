@@ -40,6 +40,7 @@ bit                       i_xfer_full;
 logic                      o_xfer_adv;   // Advance UI Combo.        
 logic   [BUS_WDT-1:0]      o_xfer_rdata;
 logic                      o_xfer_rdav;
+logic                      o_xfer_ok_to_shutdown;
 
 ahb_master #(.BUS_WDT(BUS_WDT)) u_ahb_master (.*);
 
@@ -96,7 +97,20 @@ begin
         i_xfer_wdata  <= $random;
         i_xfer_dav   <= 1'd1;
 
-        delay(3);
+        fork
+        
+                repeat(10) 
+                begin
+                        @(posedge i_hclk);
+                        i_xfer_trig <= 1'd1;
+                        i_xfer_dav  <= 1'd0;
+                end
+
+                begin
+                        repeat(3) @(posedge i_hclk);
+                        i_xfer_en <= 1'd0;
+                end
+        join
 
         $finish;
 end
