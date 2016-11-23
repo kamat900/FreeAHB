@@ -1,3 +1,3 @@
-$AHB_HOME/rtl/ahb_master.v
-$AHB_HOME/rtl/ahb_master_pipeline.v
-$AHB_HOME/bench/ahb_master_test.sv 
+../rtl/ahb_master.v
+../rtl/ahb_master_pipeline.v
+../bench/ahb_master_test.sv 

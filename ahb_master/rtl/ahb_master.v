@@ -83,6 +83,7 @@ wire [1:0]      do_hsize;
 wire [3:0]      do_hprot;
 wire            do_hwrite;
 wire            do_hlock;
+wire            dontsleep; // Not really a backtrack tap but just included.
 
 // ==========================
 // Registers.
@@ -105,7 +106,8 @@ assign  o_xfer_adv =    i_hready         &&
                         i_hresp != SPLIT && 
                         i_hresp != RETRY;
 
-assign  o_xfer_ok_to_shutdown = (o_htrans == IDLE && do_htrans == IDLE);
+assign  o_xfer_ok_to_shutdown = (o_htrans == IDLE && do_htrans == IDLE && 
+                                                                !dontsleep);
 
 // ==========================
 // Pipeline instance.
@@ -157,7 +159,10 @@ ahb_pipeline #(
 
 // Data Outputs.
 .o_di_data      (       o_xfer_rdata    ),
-.o_di_dav       (       o_xfer_rdav     )
+.o_di_dav       (       o_xfer_rdav     ),
+
+// Dontsleep
+.o_dontsleep    (       dontsleep       )
 );
 
 // =============================

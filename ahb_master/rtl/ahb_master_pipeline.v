@@ -62,7 +62,9 @@ module ahb_pipeline #(parameter WDT = 32'd32) // Bus width = 32-bit by default.
         output  reg             o_do_hlock,
 
         output  reg  [WDT-1:0]  o_di_data,
-        output  reg             o_di_dav
+        output  reg             o_di_dav,
+
+        output  wire            o_dontsleep
 );
 
 localparam [1:0] IDLE = 2'd0;
@@ -73,6 +75,7 @@ localparam [1:0] ERROR = 2'd1;
 
 // Nosleep flop.
 reg dontsleep;
+assign o_dontsleep = dontsleep;
 
 // Pipeline anti-stall signal, hwdata anti-stall signal, di_data_en anti-stall.
 wire adv = i_hready && i_hgrant;
