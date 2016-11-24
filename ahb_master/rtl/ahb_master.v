@@ -2,6 +2,8 @@
 // This is the top module. Also contains pipeline control logic. You can set
 // data bus to either 32-bit or 64-bit by setting BUS_WDT to either 32 or 64.
 //
+// WARNING: This design is still very *experimental*. Use it at your own risk.
+//
 // ----------------------------------------------------------------------------
 // MIT License.
 // (C)2016 Revanth Kamaraj.
