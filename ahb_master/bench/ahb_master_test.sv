@@ -50,11 +50,18 @@ initial
 begin
         $dumpfile("ahb_master.vcd");
         $dumpvars;
+
+       @(posedge i_hclk);
+        i_hreset_n <= 1'd0; 
+
+        @(posedge i_hclk);
+        i_xfer_en <= 1'd1;
+
+        repeat(50)
+        @(posedge i_hclk);
+
+        @(posedge i_hclk);
         i_hgrant <= 1'd1;
-
-        @(posedge i_hclk);
-
-        @(posedge i_hclk);
         i_hreset_n <= 1'd1;
 
         @(posedge i_hclk);

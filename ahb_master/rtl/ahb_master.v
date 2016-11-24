@@ -86,6 +86,7 @@ wire [3:0]      do_hprot;
 wire            do_hwrite;
 wire            do_hlock;
 wire            dontsleep; // Not really a backtrack tap but just included.
+wire            agu_hbusreq;
 
 // ==========================
 // Registers.
@@ -110,6 +111,9 @@ assign  o_xfer_adv =    i_hready         &&
 
 assign  o_xfer_ok_to_shutdown = (o_htrans == IDLE && do_htrans == IDLE && 
                                                                 !dontsleep);
+
+// Bus request generation.
+assign        o_hbusreq = agu_hbusreq | i_xfer_en; 
 
 // ==========================
 // Pipeline instance.
@@ -148,7 +152,7 @@ ahb_pipeline #(
 .o_agu_hprot    (       o_hprot         ),
 .o_agu_hwrite   (       o_hwrite        ),
 .o_agu_hlock    (       o_hlock         ),
-.o_agu_hbusreq  (       o_hbusreq       ),
+.o_agu_hbusreq  (       agu_hbusreq     ),
 
 // Backtrack taps.
 .o_do_hwdata    (       o_hwdata        ),
