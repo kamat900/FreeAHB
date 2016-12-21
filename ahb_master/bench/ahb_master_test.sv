@@ -12,6 +12,7 @@ bit                       i_hready;
 bit                       i_hgrant;
 bit    [BUS_WDT-1:0]      i_hrdata;
 bit    [1:0]              i_hresp;
+bit     [3:0]             i_hmaster;
 
 logic   [BUS_WDT-1:0]      o_hwdata;
 logic   [31:0]             o_haddr;
@@ -42,7 +43,7 @@ logic   [BUS_WDT-1:0]      o_xfer_rdata;
 logic                      o_xfer_rdav;
 logic                      o_xfer_ok_to_shutdown;
 
-ahb_master #(.BUS_WDT(BUS_WDT)) u_ahb_master (.*);
+ahb_master #(.BUS_WDT(BUS_WDT), .MASTER_ID(0)) u_ahb_master (.*);
 
 always #10 i_hclk++;
 

@@ -11,7 +11,11 @@
 
 `default_nettype none
 
-module ahb_master #(parameter BUS_WDT = 32) // Set either 32 or 64.
+module ahb_master 
+        #( 
+                parameter [31:0] BUS_WDT   = 32, 
+                parameter [3:0]  MASTER_ID = 4 
+        ) 
 (
         // =====================================
         // AHB signals. 
@@ -23,6 +27,7 @@ module ahb_master #(parameter BUS_WDT = 32) // Set either 32 or 64.
         input   wire                    i_hgrant,
         input   wire [BUS_WDT-1:0]      i_hrdata,
         input   wire [1:0]              i_hresp,
+        input   wire [3:0]              i_hmaster,
 
         output  wire [BUS_WDT-1:0]      o_hwdata,
         output  wire [31:0]             o_haddr,
@@ -103,10 +108,10 @@ assign o_hburst = INCR;
 wire nready =     ( i_xfer_write && !i_xfer_dav   ) || 
                   (!i_xfer_write && !i_xfer_full  );
 
-assign  o_xfer_adv =    i_hready         && 
-                        i_hgrant         && 
-                        !backtrack_ff    &&
-                        i_hresp != SPLIT && 
+assign  o_xfer_adv =    i_hready                 && 
+                        (i_hmaster == MASTER_ID) && 
+                        !backtrack_ff            &&
+                        i_hresp != SPLIT         && 
                         i_hresp != RETRY;
 
 assign  o_xfer_ok_to_shutdown = (o_htrans == IDLE && do_htrans == IDLE && 
