@@ -12,8 +12,9 @@
 
 `default_nettype none
 
-module ahb_pipeline #(parameter WDT = 32'd32) // Bus width = 32-bit by default.
-                                              // Set either 32-bit or 64-bit.
+module ahb_pipeline #(parameter WDT = 32'd32, parameter MASTER_ID = 4) 
+                                                // Bus width = 32-bit by default.
+                                                // Set either 32-bit or 64-bit.
 (
         // ==================================
         // AHB Inputs. 
@@ -39,6 +40,7 @@ module ahb_pipeline #(parameter WDT = 32'd32) // Bus width = 32-bit by default.
         input   wire [3:0]      i_hprot,
         input   wire            i_hlock,
         input   wire            i_hbusreq,
+        input   wire [3:0]      i_hmaster,
 
         // =================================
         // Pipeline registers / AHB Outputs.
@@ -78,7 +80,7 @@ reg dontsleep;
 assign o_dontsleep = dontsleep;
 
 // Pipeline anti-stall signal, hwdata anti-stall signal, di_data_en anti-stall.
-wire adv = i_hready && i_hgrant;
+wire adv = i_hready && (i_hmaster == MASTER_ID);
 
 wire do_hwdata_en = adv                  && 
                     o_agu_hwrite         && 

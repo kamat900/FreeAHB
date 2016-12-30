@@ -125,7 +125,7 @@ assign        o_hbusreq = agu_hbusreq | i_xfer_en;
 // ==========================
 
 ahb_pipeline #(
-.WDT(BUS_WDT)
+.WDT(BUS_WDT), .MASTER_ID(MASTER_ID)
 ) 
         u_ahb_pipeline 
 (
@@ -138,6 +138,7 @@ ahb_pipeline #(
 .i_hgrant       (       i_hgrant        ),
 .i_hrdata       (       i_hrdata        ),
 .i_hresp        (       i_hresp         ),
+.i_hmaster      (       i_hmaster       ),
 
 // Pipeline inputs.
 .i_hwrite       (       hwrite          ),
