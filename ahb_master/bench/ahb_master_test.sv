@@ -41,7 +41,7 @@ assign hwdata1 = U_AHB_MASTER.o_hwdata[1];
 
 ahb_master      #(.DATA_WDT(DATA_WDT), .BEAT_WDT(BEAT_WDT)) U_AHB_MASTER    (.*); 
 
-ahb_slave_sim   #(.DATA_WDT(DATA_WDT))                      U_AHB_SLAVE_SIM (
+ahb_slave_sim   #(.DATA_WDT(DATA_WDT))                      U_AHB_SLAVE_SIM_1 (
 
 .i_hclk         (i_hclk),
 .i_hreset_n     (i_hreset_n),

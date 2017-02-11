@@ -1,6 +1,11 @@
 /////////////////////////////////////////////////////
-// A simulation model of the AHB slave.
+// A simulation model of the AHB slave. This model
+// can generate only OKAY responses.
+// <----- NOT FOR SYNTHESIS ------------->
 /////////////////////////////////////////////////////
+
+// synthesis translate_off
+`ifdef SIM
 
 module ahb_slave_sim #(parameter DATA_WDT = 32) (
 
@@ -82,6 +87,7 @@ always @ (posedge (i_hclk && o_hready && i_hready) or negedge i_hreset_n)
 begin
         if ( i_hsel && (i_htrans == SEQ || i_htrans == NONSEQ) && !i_hwrite )
         begin
+                $display($time, "%m :: Reading data %x from address %x", mem[i_haddr], i_haddr);
                 o_hrdata <= mem [i_haddr];
         end 
 end
@@ -106,3 +112,6 @@ begin
 end        
 
 endmodule
+
+`endif
+// synthesis translate_on
