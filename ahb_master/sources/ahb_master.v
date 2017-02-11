@@ -11,6 +11,8 @@
 // The entire design is driven by a single clock i.e., AHB clock. A global
 // asynchronous active low reset is provided.
 //////////////////////////////////////////////////////////////////////
+// NOTE: THE DESIGN IS IN AN EXPERIMENTAL STATE.
+//////////////////////////////////////////////////////////////////////
 
 module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
         ///////////////////////////////////
