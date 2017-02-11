@@ -99,8 +99,8 @@ localparam B = BEAT_WDT-1;
  * Flip-flops.
  */
 
-reg [4:0]  burst_ctr; // Small counter to keep track number of transfers left in a burst.
-reg [B:0]  beat_ctr;  // Counter to keep track of number of words left in the burst.
+reg [4:0]  burst_ctr;       // Small counter to keep track of current burst count.
+reg [B:0]  beat_ctr;        // Counter to keep track of word/beat count.
 
 /* Pipeline flip-flops. */ 
 reg [1:0]  gnt;        
@@ -110,6 +110,7 @@ reg [31:0] haddr  [1:0];
 reg [1:0]  htrans [1:0];
 reg [1:0]  hwrite;     
 reg [2:0]  hsize  [1:0];
+reg [B:0]  beat;        // Only for stage 2.
 
 /* Tracks if we are in a pending state. */
 reg        pend_split;
@@ -126,6 +127,9 @@ wire rd_wr         = i_rd || (i_wr && i_dav);
 
 /* Detects that 1k boundary is about to be crossed. */
 wire b1k           = (haddr[0] + (rd_wr << i_size)) >> 10 != haddr[0][31:10];
+
+/* Detects that 1k boundary condition MAY be crossed */
+wire b1k_spec      = (haddr[0] + (1 << i_size)) >> 10 != haddr[0][31:10];
 
 /*
  * Misc. logic.
@@ -188,10 +192,10 @@ begin
                         {hwdata[0], hwrite[0], hsize[0]} <= {hwdata[1], hwrite[1], hsize[1]};
 
                         haddr[0]  <= haddr[1];
-                        hburst    <= compute_hburst(beat_ctr == 0 ? 0 : beat_ctr + 1);
+                        hburst    <= compute_hburst(beat);
                         htrans[0] <= NONSEQ;
-                        burst_ctr <= compute_burst_ctr(beat_ctr == 0 ? 0 : beat_ctr + 1);
-                        beat_ctr  <= beat_ctr + 1;
+                        burst_ctr <= compute_burst_ctr(beat);
+                        beat_ctr  <= beat;
                 end
                 else
                 begin
@@ -200,26 +204,26 @@ begin
                         if ( !i_cont )
                         begin
                                 haddr[0]  <= i_addr;
-                                hburst    <= compute_hburst(i_min_len - rd_wr);
+                                hburst    <= compute_hburst(i_min_len);
                                 htrans[0] <= rd_wr ? NONSEQ : IDLE;
-                                beat_ctr  <= i_min_len - rd_wr;
-                                burst_ctr <= compute_burst_ctr(i_min_len - rd_wr);
+                                beat_ctr  <= i_min_len;
+                                burst_ctr <= compute_burst_ctr(i_min_len);
                         end
-                        else if ( !gnt[0] || (burst_ctr == 0 && o_hburst != INCR) )
+                        else if ( !gnt[0] || (burst_ctr == 1 && o_hburst != INCR) || htrans[0] == IDLE || (!rd_wr && b1k_spec) )
                         begin
                                 haddr[0]  <= haddr[0] + (rd_wr << i_size);
-                                hburst    <= compute_hburst(beat_ctr ? beat_ctr - rd_wr : 0);
+                                hburst    <= compute_hburst(beat_ctr);
                                 htrans[0] <= rd_wr ? NONSEQ : IDLE;
-                                burst_ctr <= compute_burst_ctr(beat_ctr ? beat_ctr - rd_wr : 0); 
-                                beat_ctr  <= beat_ctr ? beat_ctr - rd_wr : 0;
+                                burst_ctr <= compute_burst_ctr(beat_ctr); 
+                                beat_ctr  <= (htrans[0] == IDLE || hburst[0] == INCR) ? beat_ctr : beat_ctr - 1; 
                         end
                         else
                         begin
                                 haddr[0]  <= haddr[0] + (rd_wr << i_size);
                                 htrans[0] <= rd_wr ? (b1k ? NONSEQ : SEQ) : BUSY;
-                                hburst[0] <= b1k ? INCR : hburst[0];
-                                burst_ctr <= burst_ctr ? burst_ctr - rd_wr : 0;
-                                beat_ctr  <= beat_ctr  ? beat_ctr  - rd_wr : 0;
+                                hburst    <= b1k ? INCR : hburst;
+                                burst_ctr <= o_hburst == INCR ? burst_ctr : (burst_ctr - rd_wr);
+                                beat_ctr  <= o_hburst == INCR ? beat_ctr  : (beat_ctr  - rd_wr);
                         end
                 end 
         end
@@ -231,8 +235,8 @@ end
 always @ (posedge i_hclk)
 begin
         if ( i_hready && gnt[0] )
-                {hwdata[1], haddr[1], hwrite[1], hsize[1], htrans[1]} <= 
-                {hwdata[0], haddr[0], hwrite[0], hsize[0], htrans[0]};                 
+                {hwdata[1], haddr[1], hwrite[1], hsize[1], htrans[1], beat} <= 
+                {hwdata[0], haddr[0], hwrite[0], hsize[0], htrans[0], beat_ctr};                 
 end
 
 /*
@@ -256,15 +260,15 @@ end
  * Functions.
  */
 function [2:0] compute_hburst (input [B:0] val);
-        compute_hburst =        (val >= 15) ? INCR16 :
-                                (val >= 7)  ? INCR8 :
-                                (val >= 3)  ? INCR4 : INCR;
+        compute_hburst =        (val >= 16) ? INCR16 :
+                                (val >= 8)  ? INCR8 :
+                                (val >= 4)  ? INCR4 : INCR;
 endfunction
 
 function [4:0] compute_burst_ctr(input [4:0] val);
-        compute_burst_ctr =     (val >= 15) ? 5'd15 :
-                                (val >= 7)  ? 5'd7  :
-                                (val >= 3)  ? 5'd3  : 0;
+        compute_burst_ctr =     (val >= 16) ? 5'd16 :
+                                (val >= 8)  ? 5'd8  :
+                                (val >= 4)  ? 5'd4  : 0;
 endfunction
 
 /*
@@ -298,7 +302,7 @@ begin
         endcase 
 
         case(o_htrans)
-        SINGLE: HTRANS = "SINGLE";
+        SINGLE: HTRANS = "IDLE";
         BUSY:   HTRANS = "BUSY";  
         SEQ:    HTRANS = "SEQ";   
         NONSEQ: HTRANS = "NONSEQ";

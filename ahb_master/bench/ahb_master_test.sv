@@ -22,7 +22,7 @@ parameter BEAT_WDT = 32;
 
         // User interface.
         logic                 o_next;   // UI must change only if this is 1.
-        bit     [DATA_WDT-1:0]i_data;   // Data to write. Can change during burst if o_next = 1.
+        logic   [DATA_WDT-1:0]i_data;   // Data to write. Can change during burst if o_next = 1.
         bit                   i_dav;    // Data to write valid. Can change during burst if o_next = 1.
         bit      [31:0]       i_addr;   // Base address of burst.
         bit      [2:0]        i_size;   // Size of transfer. Like hsize.
@@ -46,6 +46,9 @@ begin
                 i_hgrant <= 1'd0;
 end
 
+bit dav;
+bit [31:0] dat;
+
 initial
 begin
         $dumpfile("ahb_master.vcd");
@@ -61,13 +64,26 @@ begin
 
         // We can change inputs.
         i_min_len <= 20;
-        i_rd      <= 1'd1;
+        i_wr      <= 1'd1;
+        i_dav     <= 1'd0;
 
         wait_for_next;       
 
-        i_cont    <= 1'd1; 
+        i_cont    <= 1'd0; 
+        i_dav     <= 1'd1;
+        i_data    <= i_data + 1;
 
-        d(2000);
+        repeat(10000)
+        begin: bk
+                dav = $random;
+                dat = dat + dav;
+
+                wait_for_next;
+                i_cont    <= 1'd1;
+                i_dav     <= dav;
+                i_data    <= dav ? dat : 32'dx;
+        end
+
         $finish;
 end
 
@@ -76,6 +92,7 @@ task wait_for_next;
         begin
                 d(1);
         end
+        d(1);
 endtask
 
 task d(int x);
