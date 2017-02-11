@@ -1,24 +1,24 @@
-//////////////////////////////////////////////////////////////////////
-// Product              : AHB Master
-// Spec                 : AMBA 2.0 AHB section
-// License              : MIT license
-// Microarchitecture    : 3 stage pipeline.       
-// Target               : ASIC/FPGA
-// Author               : Revanth Kamaraj
-//////////////////////////////////////////////////////////////////////
-// This RTL describes a generic AHB master with support for single and
-// burst transfers. Split/retry pipeline rollback is also supported.
-// The entire design is driven by a single clock i.e., AHB clock. A global
-// asynchronous active low reset is provided.
-//////////////////////////////////////////////////////////////////////
-// NOTE: THE DESIGN IS IN AN EXPERIMENTAL STATE.
-//////////////////////////////////////////////////////////////////////
+/*
+ * Title                : AHB 2.0 Master
+ *
+ * License              : MIT license
+ *
+ * Target               : ASIC/FPGA
+ *
+ * Author               : Revanth Kamaraj
+ *
+ * This RTL describes a generic AHB master with support for single and
+ * burst transfers. Split/retry pipeline rollback is also supported.
+ * The entire design is driven by a single clock i.e., AHB clock. A global
+ * asynchronous active low reset is provided.
+ *
+ * NOTE: THE DESIGN IS IN AN EXPERIMENTAL STATE.
+ */
 
 module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
-        ///////////////////////////////////
-        // AHB interface.
-        ///////////////////////////////////
-
+        /*
+         * AHB interface.
+         */
         input                   i_hclk,
         input                   i_hreset_n,
         output reg [31:0]       o_haddr,
@@ -33,9 +33,9 @@ module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
         input                   i_hgrant,
         output reg              o_hbusreq,
 
-        ////////////////////////////
-        // User interface.
-        ////////////////////////////
+        /*
+         * User interface.
+         */
 
         output reg              o_next,   // UI must change only if this is 1.
         input     [DATA_WDT-1:0]i_data,   // Data to write. Can change during burst if o_next = 1.
@@ -51,21 +51,21 @@ module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
         output reg              o_dav     // Used as o_data valid indicator.
 ); 
 
-//
-// NOTE: You can change UI signals at any time if the unit is IDLING.
-// To set the unit to IDLE mode, make i_cont = 0, i_rd = 0 and i_wr = 0
-// on o_next = 1.
-//
+/*
+ * NOTE: You can change UI signals at any time if the unit is IDLING.
+ * To set the unit to IDLE mode, make i_cont = 0, i_rd = 0 and i_wr = 0
+ * on o_next = 1.
+ */
 
-/////////////////////////////////////////
-// Localparams
-/////////////////////////////////////////
+/*
+ * Localparams
+ */
 
-//
-// SINGLE, WRAPs are currently UNUSED.
-// Single transfers are treated as bursts of 
-// length 1 which is acceptable.
-//
+/*
+ * SINGLE, WRAPs are currently UNUSED.
+ * Single transfers are treated as bursts of 
+ * length 1 which is acceptable.
+ */
 localparam [1:0] IDLE   = 0;
 localparam [1:0] BUSY   = 1;
 localparam [1:0] NONSEQ = 2;
@@ -95,14 +95,14 @@ localparam [2:0] BIT1024 = 7;
 localparam D = DATA_WDT-1;
 localparam B = BEAT_WDT-1;
 
-////////////////////////////////////////////
-// Flip-flops.
-////////////////////////////////////////////
+/*
+ * Flip-flops.
+ */
 
 reg [4:0]  burst_ctr; // Small counter to keep track number of transfers left in a burst.
-reg [B:0]  beat_ctr;  // Counter to keep track of number of words left.
+reg [B:0]  beat_ctr;  // Counter to keep track of number of words left in the burst.
 
-// Pipeline flip-flops.
+/* Pipeline flip-flops. */ 
 reg [1:0]  gnt;        
 reg [2:0]  hburst;      // Only for stage 1. 
 reg [D:0]  hwdata [1:0];
@@ -111,32 +111,37 @@ reg [1:0]  htrans [1:0];
 reg [1:0]  hwrite;     
 reg [2:0]  hsize  [1:0];
 
-// Tracks if we are in a pending state. 
+/* Tracks if we are in a pending state. */
 reg        pend_split;
 
-/////////////////////////////////////////////
-// Signal aliases.
-/////////////////////////////////////////////
+/*
+ * Signal aliases.
+ */ 
 
+/* Detects the first cycle of split and retry. */
 wire spl_ret_cyc_1 = gnt[1] && !i_hready && (i_hresp == ERROR || i_hresp == SPLIT);
+
+/* Inputs are valid only if there is a read or if there is a write with valid data. */
 wire rd_wr         = i_rd || (i_wr && i_dav);
+
+/* Detects that 1k boundary is about to be crossed. */
 wire b1k           = (haddr[0] + (rd_wr << i_size)) >> 10 != haddr[0][31:10];
 
-//////////////////////////////////////////////
-// Misc. logic.
-//////////////////////////////////////////////
+/*
+ * Misc. logic.
+ */ 
 
-// Output drivers.
+/* Output drivers. */
 always @* {o_haddr, o_hburst, o_htrans, o_hwdata, o_hwrite, o_hsize} <= 
           {haddr[0], hburst, htrans[0], hwdata[1], hwrite[0], hsize[0]};
 
-//UI must change only if this is 1.
+/* UI must change only if this is 1. */
 always @* o_next = (i_hready && i_hgrant && !pend_split);
 
-///////////////////////////////////
-// Grant tracker.
-///////////////////////////////////
-
+/*
+ * Grant tracker.
+ */
+/* Passes grant throughout  the pipeline. */
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
         if ( !i_hreset_n )
@@ -147,10 +152,9 @@ begin
                 gnt <= {gnt[0], i_hgrant};
 end
 
-///////////////////////////////////////////
-// Bus request
-//////////////////////////////////////////
-
+/*
+ * Bus request
+ */ 
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
         if ( !i_hreset_n )
@@ -159,18 +163,18 @@ begin
                 o_hbusreq <= i_rd | i_wr;
 end
 
-///////////////////////////////////////////
-// Address phase. Stage I.
-///////////////////////////////////////////
-
+/*
+ * Address phase. Stage I.
+ */
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
         if ( !i_hreset_n )
         begin
+                /* Signal IDLE on reset. */
                 htrans[0]  <= IDLE;
                 pend_split <= 1'd0;
         end
-        else if ( spl_ret_cyc_1 )
+        else if ( spl_ret_cyc_1 ) /* Split retry cycle I */
         begin
                 htrans[0] <= IDLE;
                 pend_split <= 1'd1;
@@ -221,10 +225,9 @@ begin
         end
 end
 
-////////////////////////////////////////
-// HWDATA phase. Stage II.
-////////////////////////////////////////
-
+/*
+ * HWDATA phase. Stage II.
+ */
 always @ (posedge i_hclk)
 begin
         if ( i_hready && gnt[0] )
@@ -232,10 +235,9 @@ begin
                 {hwdata[0], haddr[0], hwrite[0], hsize[0], htrans[0]};                 
 end
 
-///////////////////////////////////////
-// HRDATA phase. Stage III.
-///////////////////////////////////////
-
+/*
+ * HRDATA phase. Stage III.
+ */
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
         if ( !i_hreset_n )
@@ -250,10 +252,9 @@ begin
                 o_dav <= 1'd0;
 end
 
-////////////////////////////
-// Functions.
-////////////////////////////
-
+/*
+ * Functions.
+ */
 function [2:0] compute_hburst (input [B:0] val);
         compute_hburst =        (val >= 15) ? INCR16 :
                                 (val >= 7)  ? INCR8 :
@@ -266,7 +267,9 @@ function [4:0] compute_burst_ctr(input [4:0] val);
                                 (val >= 3)  ? 5'd3  : 0;
 endfunction
 
-/////////////////////////////// DEBUG ONLY ////////////////////////////////////
+/*
+ * DEBUG ONLY
+ */
 
 `ifdef SIM
 
