@@ -309,7 +309,7 @@ begin
         ERROR:  HRESP = "ERROR";
         SPLIT:  HRESP = "SPLIT";
         RETRY:  HRESP = "RETRY";
-        default: HRESP = "<---?????---->"
+        default: HRESP = "<---?????---->";
         endcase
 
         case(o_hsize)
