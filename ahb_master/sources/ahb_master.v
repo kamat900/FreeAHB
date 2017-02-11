@@ -16,6 +16,7 @@
  *****************************************************************************/
 
 module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
+
         /************************
          * AHB interface.
          ************************/
@@ -150,7 +151,7 @@ begin
         if ( !i_hreset_n )
                 gnt <= 2'd0;
         else if ( spl_ret_cyc_1 )
-                gnt <= 2'd0;
+                gnt <= 2'd0; /* A split retry cycle 1 will invalidate the pipeline. */
         else if ( i_hready )
                 gnt <= {gnt[0], i_hgrant};
 end
@@ -207,7 +208,7 @@ begin
                                 hburst    <= compute_hburst(!i_cont ? i_min_len : beat_ctr);
                                 htrans[0] <= rd_wr ? NONSEQ : IDLE;
                                 burst_ctr <= compute_burst_ctr(!i_cont ? i_min_len : beat_ctr); 
-                                beat_ctr  <= !i_cont ? i_min_len - 1 : 
+                                beat_ctr  <= !i_cont ? (i_min_len - 1) : 
                                              (htrans[0] == IDLE || hburst[0] == INCR) ? 
                                              beat_ctr : beat_ctr - 1; 
                         end

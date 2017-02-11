@@ -14,10 +14,10 @@ parameter BEAT_WDT = 32;
         logic[DATA_WDT-1:0]    o_hwdata;
         logic                  o_hwrite;
         logic [2:0]            o_hsize;
-        bit   [DATA_WDT-1:0]   i_hrdata;
-        bit                    i_hready;
-        bit   [1:0]            i_hresp;
-        bit                    i_hgrant;
+        logic [DATA_WDT-1:0]   i_hrdata;
+        logic                  i_hready;
+        logic [1:0]            i_hresp;
+        logic                  i_hgrant;
         logic                  o_hbusreq;
 
         // User interface.
@@ -34,7 +34,29 @@ parameter BEAT_WDT = 32;
         logic[31:0]           o_addr;   // Corresponding address is presented here.
         logic                 o_dav;    // Used as o_data valid indicator.
 
-ahb_master #(.DATA_WDT(DATA_WDT), .BEAT_WDT(BEAT_WDT)) DUT (.*); 
+logic [DATA_WDT-1:0] hwdata0, hwdata1;
+
+assign hwdata0 = U_AHB_MASTER.o_hwdata[0];
+assign hwdata1 = U_AHB_MASTER.o_hwdata[1];
+
+ahb_master      #(.DATA_WDT(DATA_WDT), .BEAT_WDT(BEAT_WDT)) U_AHB_MASTER    (.*); 
+
+ahb_slave_sim   #(.DATA_WDT(DATA_WDT))                      U_AHB_SLAVE_SIM (
+
+.i_hclk         (i_hclk),
+.i_hreset_n     (i_hreset_n),
+.i_hburst       (o_hburst),
+.i_htrans       (o_htrans),
+.i_hwdata       (o_hwdata),
+.i_hsel         (1'd1),
+.i_haddr        (o_haddr),
+.i_hwrite       (o_hwrite),
+.i_hready       (1'd1),
+.o_hrdata       (i_hrdata),
+.o_hready       (i_hready),
+.o_hresp        (i_hresp)
+
+);
 
 always #10 i_hclk++;
 
@@ -54,8 +76,6 @@ begin
         $dumpfile("ahb_master.vcd");
         $dumpvars;
 
-        i_hresp  <= 0;
-        i_hready <= 1;
         i_hgrant <= 1;
 
         i_hreset_n <= 1'd0;
@@ -68,10 +88,6 @@ begin
         i_dav     <= 1'd0;
 
         wait_for_next;       
-
-        i_cont    <= 1'd0; 
-        i_dav     <= 1'd1;
-        i_data    <= i_data + 1;
 
         repeat(10000)
         begin: bk
