@@ -206,7 +206,7 @@ begin
                                 haddr[0]  <= i_addr;
                                 hburst    <= compute_hburst(i_min_len);
                                 htrans[0] <= rd_wr ? NONSEQ : IDLE;
-                                beat_ctr  <= i_min_len;
+                                beat_ctr  <= i_min_len - 1;
                                 burst_ctr <= compute_burst_ctr(i_min_len);
                         end
                         else if ( !gnt[0] || (burst_ctr == 1 && o_hburst != INCR) || htrans[0] == IDLE || (!rd_wr && b1k_spec) )
