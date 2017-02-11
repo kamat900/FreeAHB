@@ -1,130 +1,86 @@
 module ahb_master_test;
 
-parameter BUS_WDT = 32;
+parameter DATA_WDT = 32;
+parameter BEAT_WDT = 32;
 
-// =====================================
-// AHB signals. 
-// =====================================
-bit                       i_hclk;
-bit                       i_hreset_n;
+        // Clock and reset
+        bit                    i_hclk;
+        bit                    i_hreset_n;
 
-bit                       i_hready;
-bit                       i_hgrant;
-bit    [BUS_WDT-1:0]      i_hrdata;
-bit    [1:0]              i_hresp;
-bit     [3:0]             i_hmaster;
+        // AHB signals. Please see spec for more info.
+        logic [31:0]           o_haddr;
+        logic [2:0]            o_hburst;
+        logic [1:0]            o_htrans;
+        logic[DATA_WDT-1:0]    o_hwdata;
+        logic                  o_hwrite;
+        logic [2:0]            o_hsize;
+        bit   [DATA_WDT-1:0]   i_hrdata;
+        bit                    i_hready;
+        bit   [1:0]            i_hresp;
+        bit                    i_hgrant;
+        logic                  o_hbusreq;
 
-logic   [BUS_WDT-1:0]      o_hwdata;
-logic   [31:0]             o_haddr;
-logic   [1:0]              o_htrans;
-logic   [1:0]              o_hburst;
-logic   [1:0]              o_hsize;
-logic   [3:0]              o_hprot;
-logic                      o_hwrite;
-logic                      o_hlock;
-logic                      o_hbusreq;
+        // User interface.
+        logic                 o_next;   // UI must change only if this is 1.
+        bit     [DATA_WDT-1:0]i_data;   // Data to write. Can change during burst if o_next = 1.
+        bit                   i_dav;    // Data to write valid. Can change during burst if o_next = 1.
+        bit      [31:0]       i_addr;   // Base address of burst.
+        bit      [2:0]        i_size;   // Size of transfer. Like hsize.
+        bit                   i_wr;     // Write to AHB bus.
+        bit                   i_rd;     // Read from AHB bus.
+        bit     [BEAT_WDT-1:0]i_min_len;// Minimum guaranteed length of burst.
+        bit                   i_cont;   // Current transfer continues previous one.
+        logic[DATA_WDT-1:0]   o_data;   // Data got from AHB is presented here.
+        logic[31:0]           o_addr;   // Corresponding address is presented here.
+        logic                 o_dav;    // Used as o_data valid indicator.
 
-// =====================================
-// UI
-// =====================================
-logic  [BUS_WDT-1:0]      i_xfer_wdata;
-bit    [31:0]             i_xfer_addr;
-bit    [1:0]              i_xfer_size;
-bit                       i_xfer_dav;
-bit                       i_xfer_trig;
-bit                       i_xfer_en;
-bit                       i_xfer_write;
-bit    [3:0]              i_xfer_prot;
-bit                       i_xfer_lock;
-bit                       i_xfer_full;
-
-logic                      o_xfer_adv;   // Advance UI Combo.        
-logic   [BUS_WDT-1:0]      o_xfer_rdata;
-logic                      o_xfer_rdav;
-logic                      o_xfer_ok_to_shutdown;
-
-ahb_master #(.BUS_WDT(BUS_WDT), .MASTER_ID(0)) u_ahb_master (.*);
+ahb_master #(.DATA_WDT(DATA_WDT), .BEAT_WDT(BEAT_WDT)) DUT (.*); 
 
 always #10 i_hclk++;
+
+always @ (posedge i_hclk)
+begin
+        if ( o_hbusreq )
+                i_hgrant <= 1'd1;
+        else
+                i_hgrant <= 1'd0;
+end
 
 initial
 begin
         $dumpfile("ahb_master.vcd");
         $dumpvars;
 
-       @(posedge i_hclk);
-        i_hreset_n <= 1'd0; 
+        i_hresp  <= 0;
+        i_hready <= 1;
+        i_hgrant <= 1;
 
-        @(posedge i_hclk);
-        i_xfer_en <= 1'd1;
-
-        repeat(50)
-        @(posedge i_hclk);
-
-        @(posedge i_hclk);
-        i_hgrant <= 1'd1;
+        i_hreset_n <= 1'd0;
+        d(1);
         i_hreset_n <= 1'd1;
 
-        @(posedge i_hclk);
-        i_xfer_en    <= 1'd1;
-        i_xfer_trig  <= 1'd1;
-        i_xfer_write <= 1'd1;
-        i_xfer_wdata <= $random;
-        i_xfer_addr  <= 32'h2000_0000;
-        i_xfer_dav   <= 1'd1;
-        i_hready     <= 1'd1;
+        // We can change inputs.
+        i_min_len <= 20;
+        i_rd      <= 1'd1;
 
-        @(posedge i_hclk);
-        i_xfer_wdata <= $random;
-        i_xfer_trig  <= 1'd0;
+        wait_for_next;       
 
-        @(posedge i_hclk);
-        i_hready     <= 1'd1;
-        i_xfer_wdata <= $random;
+        i_cont    <= 1'd1; 
 
-        @(posedge i_hclk);
-        i_hresp      <= 2'd3;
-        i_hready     <= 1'd0;
-        i_xfer_wdata <= $random;
-
-        @(posedge i_hclk);
-        i_hresp      <= 2'd3;
-        i_hready     <= 1'd0;
-
-        @(posedge i_hclk);
-        i_hresp      <= 2'd3;
-        i_hready     <= 1'd1;
-
-        @(posedge i_hclk);
-        i_hresp      <= 2'd0;
-        i_hready     <= 1'd1;
-
-        @(posedge i_hclk);
-
-        @(posedge i_hclk);
-        i_xfer_wdata  <= $random;
-        i_xfer_dav   <= 1'd1;
-
-        fork
-        
-                repeat(10) 
-                begin
-                        @(posedge i_hclk);
-                        i_xfer_trig <= 1'd1;
-                        i_xfer_dav  <= 1'd0;
-                end
-
-                begin
-                        repeat(3) @(posedge i_hclk);
-                        i_xfer_en <= 1'd0;
-                end
-        join
-
+        d(2000);
         $finish;
 end
 
-task delay (int x);
-        repeat(x) @(posedge i_hclk);
+task wait_for_next;
+        while(o_next !== 1)
+        begin
+                d(1);
+        end
+endtask
+
+task d(int x);
+        repeat(x) 
+                @(posedge i_hclk);
 endtask
 
 endmodule

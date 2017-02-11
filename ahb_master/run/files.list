@@ -1,4 +1,0 @@
-// Use -g2012
-../rtl/ahb_master.v
-../rtl/ahb_master_pipeline.v
-../bench/ahb_master_test.sv 
