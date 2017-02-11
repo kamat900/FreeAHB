@@ -1,1 +1,1 @@
-${AHB_HOME}/ahb_master/sources/ahb_master.v
+${AHB_MASTER_HOME}/sources/ahb_master.v
