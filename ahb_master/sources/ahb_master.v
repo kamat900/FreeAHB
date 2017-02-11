@@ -1,4 +1,4 @@
-/*
+/******************************************************************************
  * Title                : AHB 2.0 Master
  *
  * License              : MIT license
@@ -13,12 +13,12 @@
  * asynchronous active low reset is provided.
  *
  * NOTE: THE DESIGN IS IN AN EXPERIMENTAL STATE.
- */
+ *****************************************************************************/
 
 module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
-        /*
+        /************************
          * AHB interface.
-         */
+         ************************/
         input                   i_hclk,
         input                   i_hreset_n,
         output reg [31:0]       o_haddr,
@@ -33,9 +33,9 @@ module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
         input                   i_hgrant,
         output reg              o_hbusreq,
 
-        /*
+        /************************
          * User interface.
-         */
+         ************************/
 
         output reg              o_next,   // UI must change only if this is 1.
         input     [DATA_WDT-1:0]i_data,   // Data to write. Can change during burst if o_next = 1.
@@ -57,14 +57,13 @@ module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
  * on o_next = 1.
  */
 
-/*
+/********************
  * Localparams
- */
+ ********************/
 
 /*
  * SINGLE, WRAPs are currently UNUSED.
- * Single transfers are treated as bursts of 
- * length 1 which is acceptable.
+ * Single transfers are treated as bursts of length 1 which is acceptable.
  */
 localparam [1:0] IDLE   = 0;
 localparam [1:0] BUSY   = 1;
@@ -74,7 +73,7 @@ localparam [1:0] OKAY   = 0;
 localparam [1:0] ERROR  = 1;
 localparam [1:0] SPLIT  = 2;
 localparam [1:0] RETRY  = 3;
-localparam [2:0] SINGLE = 0;//Unused. Done as a burst of 1.
+localparam [2:0] SINGLE = 0; /* Unused. Done as a burst of 1. */
 localparam [2:0] INCR   = 1;
 localparam [2:0] WRAP4  = 2;
 localparam [2:0] INCR4  = 3;
@@ -84,20 +83,20 @@ localparam [2:0] WRAP16 = 6;
 localparam [2:0] INCR16 = 7;
 localparam [2:0] BYTE   = 0;
 localparam [2:0] HWORD  = 1;
-localparam [2:0] WORD   = 2; // 32-bit
-localparam [2:0] DWORD  = 3; // 64-bit
+localparam [2:0] WORD   = 2; /* 32-bit */
+localparam [2:0] DWORD  = 3; /* 64-bit */
 localparam [2:0] BIT128 = 4; 
 localparam [2:0] BIT256 = 5; 
 localparam [2:0] BIT512 = 6;
 localparam [2:0] BIT1024 = 7;
 
-// Abbreviations.
+/* Abbreviations. */
 localparam D = DATA_WDT-1;
 localparam B = BEAT_WDT-1;
 
-/*
+/******************
  * Flip-flops.
- */
+ ******************/
 
 reg [4:0]  burst_ctr;       // Small counter to keep track of current burst count.
 reg [B:0]  beat_ctr;        // Counter to keep track of word/beat count.
@@ -115,9 +114,9 @@ reg [B:0]  beat;        // Only for stage 2.
 /* Tracks if we are in a pending state. */
 reg        pend_split;
 
-/*
+/***********************
  * Signal aliases.
- */ 
+ ***********************/ 
 
 /* Detects the first cycle of split and retry. */
 wire spl_ret_cyc_1 = gnt[1] && !i_hready && (i_hresp == ERROR || i_hresp == SPLIT);
@@ -131,9 +130,9 @@ wire b1k           = (haddr[0] + (rd_wr << i_size)) >> 10 != haddr[0][31:10];
 /* Detects that 1k boundary condition MAY be crossed */
 wire b1k_spec      = (haddr[0] + (1 << i_size)) >> 10 != haddr[0][31:10];
 
-/*
+/*******************
  * Misc. logic.
- */ 
+ *******************/ 
 
 /* Output drivers. */
 always @* {o_haddr, o_hburst, o_htrans, o_hwdata, o_hwrite, o_hsize} <= 
@@ -142,9 +141,9 @@ always @* {o_haddr, o_hburst, o_htrans, o_hwdata, o_hwrite, o_hsize} <=
 /* UI must change only if this is 1. */
 always @* o_next = (i_hready && i_hgrant && !pend_split);
 
-/*
+/***********************
  * Grant tracker.
- */
+ ***********************/
 /* Passes grant throughout  the pipeline. */
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
@@ -156,9 +155,9 @@ begin
                 gnt <= {gnt[0], i_hgrant};
 end
 
-/*
+/**************************
  * Bus request
- */ 
+ **************************/ 
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
         if ( !i_hreset_n )
@@ -167,9 +166,9 @@ begin
                 o_hbusreq <= i_rd | i_wr;
 end
 
-/*
+/******************************
  * Address phase. Stage I.
- */
+ ******************************/
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
         if ( !i_hreset_n )
@@ -201,37 +200,34 @@ begin
                 begin
                         {hwdata[0], hwrite[0], hsize[0]} <= {i_data, i_wr, i_size}; 
 
-                        if ( !i_cont )
+                        if ( !i_cont || !gnt[0] || (burst_ctr == 1 && o_hburst != INCR) 
+                                     || htrans[0] == IDLE || (!rd_wr && b1k_spec) )
                         begin
-                                haddr[0]  <= i_addr;
-                                hburst    <= compute_hburst(i_min_len);
+                                haddr[0]  <= !i_cont ? i_addr : haddr[0] + (rd_wr << i_size);
+                                hburst    <= compute_hburst(!i_cont ? i_min_len : beat_ctr);
                                 htrans[0] <= rd_wr ? NONSEQ : IDLE;
-                                beat_ctr  <= i_min_len - 1;
-                                burst_ctr <= compute_burst_ctr(i_min_len);
-                        end
-                        else if ( !gnt[0] || (burst_ctr == 1 && o_hburst != INCR) || htrans[0] == IDLE || (!rd_wr && b1k_spec) )
-                        begin
-                                haddr[0]  <= haddr[0] + (rd_wr << i_size);
-                                hburst    <= compute_hburst(beat_ctr);
-                                htrans[0] <= rd_wr ? NONSEQ : IDLE;
-                                burst_ctr <= compute_burst_ctr(beat_ctr); 
-                                beat_ctr  <= (htrans[0] == IDLE || hburst[0] == INCR) ? beat_ctr : beat_ctr - 1; 
+                                burst_ctr <= compute_burst_ctr(!i_cont ? i_min_len : beat_ctr); 
+                                beat_ctr  <= !i_cont ? i_min_len - 1 : 
+                                             (htrans[0] == IDLE || hburst[0] == INCR) ? 
+                                             beat_ctr : beat_ctr - 1; 
                         end
                         else
                         begin
                                 haddr[0]  <= haddr[0] + (rd_wr << i_size);
                                 htrans[0] <= rd_wr ? (b1k ? NONSEQ : SEQ) : BUSY;
                                 hburst    <= b1k ? INCR : hburst;
-                                burst_ctr <= o_hburst == INCR ? burst_ctr : (burst_ctr - rd_wr);
-                                beat_ctr  <= o_hburst == INCR ? beat_ctr  : (beat_ctr  - rd_wr);
+                                burst_ctr <= o_hburst == INCR ? 
+                                             burst_ctr : (burst_ctr - rd_wr);
+                                beat_ctr  <= o_hburst == INCR ? 
+                                             beat_ctr  : (beat_ctr  - rd_wr);
                         end
                 end 
         end
 end
 
-/*
+/******************************
  * HWDATA phase. Stage II.
- */
+ ******************************/
 always @ (posedge i_hclk)
 begin
         if ( i_hready && gnt[0] )
@@ -239,9 +235,9 @@ begin
                 {hwdata[0], haddr[0], hwrite[0], hsize[0], htrans[0], beat_ctr};                 
 end
 
-/*
+/********************************
  * HRDATA phase. Stage III.
- */
+ ********************************/
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
         if ( !i_hreset_n )
@@ -256,9 +252,9 @@ begin
                 o_dav <= 1'd0;
 end
 
-/*
+/*****************************
  * Functions.
- */
+ *****************************/
 function [2:0] compute_hburst (input [B:0] val);
         compute_hburst =        (val >= 16) ? INCR16 :
                                 (val >= 8)  ? INCR8 :
@@ -271,15 +267,14 @@ function [4:0] compute_burst_ctr(input [4:0] val);
                                 (val >= 4)  ? 5'd4  : 0;
 endfunction
 
-/*
+/********************
  * DEBUG ONLY
- */
-
+ ********************/
 `ifdef SIM
 
 initial
 begin
-        $display($time,"DEBUG MODE ENABLED! PLEASE MONITOR CAPS SIGNALS IN VCD...");
+        $display($time,"DEBUG MODE ENABLED! PLEASE MONITOR CAPITAL SIGNALS IN VCD...");
 end
 
 `ifndef STRING
@@ -314,6 +309,7 @@ begin
         ERROR:  HRESP = "ERROR";
         SPLIT:  HRESP = "SPLIT";
         RETRY:  HRESP = "RETRY";
+        default: HRESP = "<---?????---->"
         endcase
 
         case(o_hsize)
