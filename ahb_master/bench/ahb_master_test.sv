@@ -83,13 +83,17 @@ begin
         i_hreset_n <= 1'd1;
 
         // We can change inputs.
-        i_min_len <= 20;
+        i_min_len <= 42;
         i_wr      <= 1'd1;
-        i_dav     <= 1'd0;
+        i_dav     <= $random;
 
         wait_for_next;       
 
-        repeat(10000)
+        i_cont    <= i_dav ? 1'd1 : 1'd0;
+        i_wr      <= 1'd1;
+        i_dav     <= 1'd1;
+
+        repeat(100)
         begin: bk
                 dav = $random;
                 dat = dat + dav;

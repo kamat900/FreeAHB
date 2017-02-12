@@ -54,8 +54,10 @@ module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
 
 /*
  * NOTE: You can change UI signals at any time if the unit is IDLING.
- * To set the unit to IDLE mode, make i_cont = 0, i_rd = 0 and i_wr = 0
+ * To set the unit to IDLE mode, make i_cont = 0, i_rd = 0 and i_wr = 0 or i_wr = 1 and i_dav = 0.
  * on o_next = 1.
+ *
+ * NOTE: Most UI inputs should be held constant during a burst.
  */
 
 /********************
@@ -125,10 +127,7 @@ wire spl_ret_cyc_1 = gnt[1] && !i_hready && (i_hresp == ERROR || i_hresp == SPLI
 /* Inputs are valid only if there is a read or if there is a write with valid data. */
 wire rd_wr         = i_rd || (i_wr && i_dav);
 
-/* Detects that 1k boundary is about to be crossed. */
-wire b1k           = (haddr[0] + (rd_wr << i_size)) >> 10 != haddr[0][31:10];
-
-/* Detects that 1k boundary condition MAY be crossed */
+/* Detects that 1k boundary condition will be crossed on next address */
 wire b1k_spec      = (haddr[0] + (1 << i_size)) >> 10 != haddr[0][31:10];
 
 /*******************
@@ -161,6 +160,7 @@ end
  **************************/ 
 always @ (posedge i_hclk or negedge i_hreset_n)
 begin
+        /* Request bus when doing reads/writes else do not request bus */
         if ( !i_hreset_n )
                 o_hbusreq <= 1'd0;
         else
@@ -185,42 +185,51 @@ begin
         end
         else if ( i_hready && i_hgrant )
         begin
-                pend_split <= 1'd0;
+                pend_split <= 1'd0; /* Any pending split will be cleared */
 
                 if ( pend_split )
                 begin
+                        /* If there's a pending split, perform a pipeline rollback */
+
                         {hwdata[0], hwrite[0], hsize[0]} <= {hwdata[1], hwrite[1], hsize[1]};
 
                         haddr[0]  <= haddr[1];
-                        hburst    <= compute_hburst(beat);
+                        hburst    <= compute_hburst   (beat, haddr[1], hsize[1]);
                         htrans[0] <= NONSEQ;
-                        burst_ctr <= compute_burst_ctr(beat);
+                        burst_ctr <= compute_burst_ctr(beat, haddr[1], hsize[1]);
                         beat_ctr  <= beat;
                 end
                 else
                 begin
                         {hwdata[0], hwrite[0], hsize[0]} <= {i_data, i_wr, i_size}; 
 
-                        if ( !i_cont || !gnt[0] || (burst_ctr == 1 && o_hburst != INCR) 
-                                     || htrans[0] == IDLE || (!rd_wr && b1k_spec) )
+                        if ( !i_cont && !rd_wr ) /* Signal IDLE. */
                         begin
+                                htrans[0] <= IDLE;
+                        end
+                        else if ( (!i_cont && rd_wr) || !gnt[0] || (burst_ctr == 1 && o_hburst != INCR) 
+                                     || htrans[0] == IDLE || b1k_spec )
+                        begin
+                                /* We need to recompute the burst type here */
+
                                 haddr[0]  <= !i_cont ? i_addr : haddr[0] + (rd_wr << i_size);
-                                hburst    <= compute_hburst(!i_cont ? i_min_len : beat_ctr);
+                                hburst    <= compute_hburst   (!i_cont ? i_min_len : beat_ctr,    
+                                                               !i_cont ? i_addr : haddr[0] + (rd_wr << i_size) , i_size);
                                 htrans[0] <= rd_wr ? NONSEQ : IDLE;
-                                burst_ctr <= compute_burst_ctr(!i_cont ? i_min_len : beat_ctr); 
-                                beat_ctr  <= !i_cont ? (i_min_len - 1) : 
-                                             (htrans[0] == IDLE || hburst[0] == INCR) ? 
-                                             beat_ctr : beat_ctr - 1; 
+
+                                burst_ctr <= compute_burst_ctr(!i_cont ? i_min_len : beat_ctr - rd_wr, 
+                                                               !i_cont ? i_addr : haddr[0] + (rd_wr << i_size) , i_size); 
+
+                                beat_ctr  <= !i_cont ? i_min_len : ((hburst == INCR) ? beat_ctr : beat_ctr - rd_wr); 
                         end
                         else
                         begin
+                                /* We are in a normal burst. No need to change HBURST. */
+
                                 haddr[0]  <= haddr[0] + (rd_wr << i_size);
-                                htrans[0] <= rd_wr ? (b1k ? NONSEQ : SEQ) : BUSY;
-                                hburst    <= b1k ? INCR : hburst;
-                                burst_ctr <= o_hburst == INCR ? 
-                                             burst_ctr : (burst_ctr - rd_wr);
-                                beat_ctr  <= o_hburst == INCR ? 
-                                             beat_ctr  : (beat_ctr  - rd_wr);
+                                htrans[0] <= rd_wr ? SEQ : BUSY;
+                                burst_ctr <= o_hburst == INCR ? burst_ctr : (burst_ctr - rd_wr);
+                                beat_ctr  <= o_hburst == INCR ? beat_ctr  : (beat_ctr  - rd_wr);
                         end
                 end 
         end
@@ -256,22 +265,35 @@ end
 /*****************************
  * Functions.
  *****************************/
-function [2:0] compute_hburst (input [B:0] val);
-        compute_hburst =        (val >= 16) ? INCR16 :
-                                (val >= 8)  ? INCR8 :
-                                (val >= 4)  ? INCR4 : INCR;
+function [2:0] compute_hburst (input [B:0] val, input [31:0] addr, input [2:0] sz);
+        compute_hburst =        (val >= 16 && no_cross(addr, 15, sz)) ? INCR16 :
+                                (val >= 8  && no_cross(addr, 7, sz))  ? INCR8 :
+                                (val >= 4  && no_cross(addr, 3, sz))  ? INCR4 : INCR;
+
+        $display($time, "val = %d, addr = %d, sz = %d, compute_hburst = %d", val, addr, sz, compute_hburst);
 endfunction
 
-function [4:0] compute_burst_ctr(input [4:0] val);
-        compute_burst_ctr =     (val >= 16) ? 5'd16 :
-                                (val >= 8)  ? 5'd8  :
-                                (val >= 4)  ? 5'd4  : 0;
+function [4:0] compute_burst_ctr(input [B:0] val, input [31:0] addr, input [2:0] sz);
+        compute_burst_ctr =     (val >= 16 && no_cross(addr, 15, sz)) ? 5'd16 :
+                                (val >= 8  && no_cross(addr, 7, sz))  ? 5'd8  :
+                                (val >= 4 && no_cross(addr, 3, sz))   ? 5'd4  : 0;
+
+        $display($time, "val = %d, addr = %d, sz = %d, compute_burst_ctr = %d", val, addr, sz, compute_burst_ctr);
+endfunction
+
+function no_cross(input [31:0] addr, input [31:0] val, input [2:0] sz);
+        if ( addr + (val << (1 << sz )) >> 10 != addr[31:10] )
+                no_cross = 1'd0; // Crossed!
+        else
+                no_cross = 1'd1; // Not crossed
 endfunction
 
 /********************
  * DEBUG ONLY
  ********************/
 `ifdef SIM
+
+wire [31:0] beat_ctr_nxt = !i_cont ? (i_min_len - rd_wr) : ((hburst == INCR) ? beat_ctr : beat_ctr - rd_wr);
 
 initial
 begin
