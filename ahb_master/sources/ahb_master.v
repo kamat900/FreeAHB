@@ -57,6 +57,9 @@ module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
  * To set the unit to IDLE mode, make i_cont = 0, i_rd = 0 and i_wr = 0 or i_wr = 1 and i_dav = 0.
  * on o_next = 1.
  *
+ * NOTE: The first transaction of a burst must have valid data provided in case
+ * of a write.
+ *
  * NOTE: Most UI inputs should be held constant during a burst.
  */
 
