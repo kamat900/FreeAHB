@@ -291,10 +291,12 @@ function no_cross(input [31:0] addr, input [31:0] val, input [2:0] sz);
                 no_cross = 1'd1; // Not crossed
 endfunction
 
-/********************
- * DEBUG ONLY
- ********************/
-`ifdef SIM
+/////////////////////////////// END OF RTL. START OF DEBUG CODE /////////////////////////////////////////////////////
+
+/*******************************************************************************************************************
+ *              NOTE : CODE BELOW IS FOR DEBUG ONLY. DO NOT DEFINE SIM WHEN SYNTHESIZING THE DESIGN
+ ******************************************************************************************************************/
+`ifdef SIM // Define SIM only during verification.
 
 wire [31:0] beat_ctr_nxt = !i_cont ? (i_min_len - rd_wr) : ((hburst == INCR) ? beat_ctr : beat_ctr - rd_wr);
 
