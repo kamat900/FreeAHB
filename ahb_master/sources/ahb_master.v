@@ -147,7 +147,7 @@ reg        pend_split;
  ***********************/ 
 
 /* Detects the first cycle of split and retry. */
-wire spl_ret_cyc_1 = gnt[1] && !i_hready && (i_hresp == ERROR || i_hresp == SPLIT);
+wire spl_ret_cyc_1 = gnt[1] && !i_hready && (i_hresp == RETRY || i_hresp == SPLIT);
 
 /* Inputs are valid only if there is a read or if there is a write with valid data. */
 wire rd_wr         = i_rd || (i_wr && i_dav);
