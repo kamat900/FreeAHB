@@ -269,19 +269,23 @@ end
  * Functions.
  *****************************/
 function [2:0] compute_hburst (input [B:0] val, input [31:0] addr, input [2:0] sz);
+begin
         compute_hburst =        (val >= 16 && no_cross(addr, 15, sz)) ? INCR16 :
                                 (val >= 8  && no_cross(addr, 7, sz))  ? INCR8 :
                                 (val >= 4  && no_cross(addr, 3, sz))  ? INCR4 : INCR;
 
         $display($time, "val = %d, addr = %d, sz = %d, compute_hburst = %d", val, addr, sz, compute_hburst);
+end
 endfunction
 
 function [4:0] compute_burst_ctr(input [B:0] val, input [31:0] addr, input [2:0] sz);
+begin
         compute_burst_ctr =     (val >= 16 && no_cross(addr, 15, sz)) ? 5'd16 :
                                 (val >= 8  && no_cross(addr, 7, sz))  ? 5'd8  :
-                                (val >= 4 && no_cross(addr, 3, sz))   ? 5'd4  : 0;
+                                (val >= 4 && no_cross(addr, 3, sz))   ? 5'd4  : 5'd0;
 
         $display($time, "val = %d, addr = %d, sz = %d, compute_burst_ctr = %d", val, addr, sz, compute_burst_ctr);
+end
 endfunction
 
 function no_cross(input [31:0] addr, input [31:0] val, input [2:0] sz);
