@@ -265,7 +265,7 @@ begin
                         begin
                                 /* We are in a normal burst. No need to change HBURST. */
 
-                                haddr[0]  <= haddr[0] + (rd_wr << i_size);
+                                haddr[0]  <= haddr[0] + ((htrans[0] != BUSY) << i_size);
                                 htrans[0] <= rd_wr ? SEQ : BUSY;
                                 burst_ctr <= o_hburst == INCR ? burst_ctr : (burst_ctr - rd_wr);
                                 beat_ctr  <= o_hburst == INCR ? beat_ctr  : (beat_ctr  - rd_wr);
