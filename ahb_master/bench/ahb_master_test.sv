@@ -82,17 +82,30 @@ begin
         d(1);
         i_hreset_n <= 1'd1;
 
-        // We can change inputs.
+        // Set IDLE for some time.
+        i_rd <= 0;
+        i_wr <= 0;
+
+        repeat(10) @(posedge i_hclk);
+
+        // We can change inputs at any time.
+        // Starting a write burst.
         i_min_len <= 42;
         i_wr      <= 1'd1;
-        i_dav     <= $random;
+        i_cont    <= 1'd0; // First txn.
+        i_dav     <= 1'd1; // First UI of a write burst must have valid data.
+        i_data    <= $random;
 
+        // Further change requires o_next.
         wait_for_next;       
 
-        i_cont    <= i_dav ? 1'd1 : 1'd0;
+        // Here onwards o_cont = 1.
+        i_cont    <= 1'd1;
         i_wr      <= 1'd1;
         i_dav     <= 1'd1;
 
+        // Write to the unit as if reading from a FIFO with intermittent
+        // FIFO empty conditions shown as dav = 0.
         repeat(100)
         begin: bk
                 dav = $random;
@@ -103,6 +116,15 @@ begin
                 i_dav     <= dav;
                 i_data    <= dav ? dat : 32'dx;
         end
+
+        wait_for_next;
+
+        // Go to IDLE.
+        i_rd   <= 1'd0;
+        i_wr   <= 1'd0;
+        i_cont <= 1'd0;
+
+        repeat(10) @(posedge i_hclk);
 
         $finish;
 end
