@@ -76,8 +76,15 @@ module ahb_master #(parameter DATA_WDT = 32, parameter BEAT_WDT = 32) (
 
 /*
  * NOTE: You can change UI signals at any time if the unit is IDLING.
- * To set the unit to IDLE mode, make i_cont = 0, i_rd = 0 and i_wr = 0 or i_wr = 1 and i_dav = 0.
- * on o_next = 1.
+ *
+ * NOTE: o_next is a combinational signal.
+ *
+ * To go to IDLE, you must follow this...
+ *      To set the unit to IDLE mode, make 
+ *              i_cont = 0, i_rd = 0 and i_wr = 0 (or) 
+ *              i_wr = 1 and i_dav = 0.
+ * on o_next = 1. As mentioned above, you change UI signals without having
+ * o_next = 1 but once changed you must change them again only when o_next = 1.
  *
  * NOTE: The first transaction of a burst must have valid data provided in case
  * of a write.
