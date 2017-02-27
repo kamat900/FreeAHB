@@ -110,7 +110,12 @@ begin
                 i_dav     <= dav;
 
                 // This technique is called x-injection.
-                i_data    <= dav ? dat : 32'dx;
+                i_data    <= dav ? dat : 
+                `ifdef X_INJECTION
+                        32'dx;
+                `else
+                        0;
+                `endif
 
                 wait_for_next;
         end
