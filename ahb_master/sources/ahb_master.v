@@ -173,7 +173,7 @@ wire b1k_spec      = (haddr[0] + (1 << i_size)) >> 10 != haddr[0][31:10];
  *******************/ 
 
 /* Output drivers. */
-always @* {o_haddr, o_hburst, o_htrans, o_hwdata, o_hwrite, o_hsize} <= 
+always @* {o_haddr, o_hburst, o_htrans, o_hwdata, o_hwrite, o_hsize} = 
           {haddr[0], hburst, htrans[0], hwdata[1], hwrite[0], hsize[0]};
 
 /* UI must change only if this is 1. */
