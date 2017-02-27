@@ -94,15 +94,10 @@ begin
         i_wr      <= 1'd1;
         i_cont    <= 1'd0; // First txn.
         i_dav     <= 1'd1; // First UI of a write burst must have valid data.
-        i_data    <= $random;
+        i_data    <= 0;    // First data is 0.
 
         // Further change requires o_next.
         wait_for_next;       
-
-        // Here onwards o_cont = 1.
-        i_cont    <= 1'd1;
-        i_wr      <= 1'd1;
-        i_dav     <= 1'd1;
 
         // Write to the unit as if reading from a FIFO with intermittent
         // FIFO empty conditions shown as dav = 0.
@@ -111,13 +106,14 @@ begin
                 dav = $random;
                 dat = dat + dav;
 
-                wait_for_next;
                 i_cont    <= 1'd1;
                 i_dav     <= dav;
-                i_data    <= dav ? dat : 32'dx;
-        end
 
-        wait_for_next;
+                // This technique is called x-injection.
+                i_data    <= dav ? dat : 32'dx;
+
+                wait_for_next;
+        end
 
         // Go to IDLE.
         i_rd   <= 1'd0;
@@ -130,16 +126,16 @@ begin
 end
 
 task wait_for_next;
+        d(1);
         while(o_next !== 1)
         begin
                 d(1);
         end
-        d(1);
 endtask
 
 task d(int x);
         repeat(x) 
-                @(posedge i_hclk);
+        @(posedge i_hclk);
 endtask
 
 endmodule
