@@ -3,6 +3,7 @@
 Author: Revanth Kamaraj (revanth91kamaraj@gmail.com)
 
 This repository currently provides an AHB 2.0 Master.
+Icarus Verilog 10.0 or higher is required to simulate the design.
 
 ## Features of the AHB master:
 
